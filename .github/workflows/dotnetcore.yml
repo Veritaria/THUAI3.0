@@ -41,7 +41,7 @@ jobs:
             cp -r ./HP-Socket-5.7.1/Linux/lib/hpsocket/x64/libhpsocket.a ./CAPI/linux_only/lib
 
       - name: Compile CAPI
-        run: ./CAPI/compile_actions.sh
+        run: chmod +x ./CAPI/compile_actions.sh
 
       - name: Find libprotos.so
         run: ls ./protobuf/lib
