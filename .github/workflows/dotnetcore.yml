@@ -21,20 +21,30 @@ jobs:
 
       - name: Setup Protobuf
         run: sudo apt-get install --no-install-recommends -y libprotobuf-dev
-      - name: Download protobuf
-        run: wget https://github.com/protocolbuffers/protobuf/releases/download/v3.8.0-rc1/protobuf-cpp-3.8.0-rc-1.tar.gz --no-check-certificate
-      - name: Unzip protobuf
-        run: tar -zxvf protobuf-cpp-3.8.0-rc-1.tar.gz
-      - name: Delete protobuf zip
-        run: rm protobuf-cpp-3.8.0-rc-1.tar.gz
       - name: Make Protobuf
         run: |
+            wget https://github.com/protocolbuffers/protobuf/releases/download/v3.8.0-rc1/protobuf-cpp-3.8.0-rc-1.tar.gz --no-check-certificate
+            tar -zxvf protobuf-cpp-3.8.0-rc-1.tar.gz
+            rm protobuf-cpp-3.8.0-rc-1.tar.gz
             cd protobuf-3.8.0-rc-1
-            pwd
-            ./configure --prefix=/protobuf
+            ./configure --prefix=/home/runner/work/THUAI3.0/THUAI3.0/protobuf
             make
             make install
             rm -rf ./protobuf-3.8.0-rc-1
+
+      - name: Download HP-Socket
+        run: |
+            wget https://github.com/ldcsaa/HP-Socket/archive/v5.7.1.tar.gz --no-check-certificate
+            tar -zxvf v5.7.1.tar.gz
+            rm  v5.7.1.tar.gz
+            cp -r ./HP-Socket-5.7.1/Linux/include/hpsocket/* ./CAPI/linux_only/include
+            cp -r ./HP-Socket-5.7.1/Linux/lib/hpsocket/x64/libhpsocket.a ./CAPI/linux_only/lib
+
+      - name: Compile CAPI
+        run: ./CAPI/compile_actions.sh
+
+      - name: Find libprotos.so
+        run: ls ./protobuf/lib
 
       - name: Publish server
         run: dotnet publish "logic/Logic.Server/Logic.Server.csproj" -c Release -r linux-x64 --self-contained true
