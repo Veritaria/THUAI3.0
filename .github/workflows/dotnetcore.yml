@@ -41,15 +41,12 @@ jobs:
             cp -r ./HP-Socket-5.7.1/Linux/lib/hpsocket/x64/libhpsocket.a ./CAPI/linux_only/lib
         
       - name: Compile CAPI
-        run: cd ./CAPI
+        run: cat CAPI/src/player.cpp | grep "#define DEVELOPER_ONLY"
       - name: Compile CAPI
-        run: cat src/player.cpp | grep "#define DEVELOPER_ONLY"
-      - name: Compile CAPI
-        run: mkdir build
-      - name: Compile CAPI
-        run: cd build
+        run: mkdir CAPI/build
       - name: Compile CAPI
         run: |
+            cd CAPI/build
             cmake ..
             make >error.txt 2>&1
             cd ..
