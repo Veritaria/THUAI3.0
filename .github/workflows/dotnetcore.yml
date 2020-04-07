@@ -40,8 +40,8 @@ jobs:
             cp -r ./HP-Socket-5.7.1/Linux/include/hpsocket/* ./CAPI/linux_only/include
             cp -r ./HP-Socket-5.7.1/Linux/lib/hpsocket/x64/libhpsocket.a ./CAPI/linux_only/lib
         
-      - name: Compile CAPI
-        run: cat CAPI/src/player.cpp | grep "#define DEVELOPER_ONLY"
+      # - name: Compile CAPI
+      #  run: cat CAPI/src/player.cpp | grep "#define DEVELOPER_ONLY"
       - name: Compile CAPI
         run: mkdir CAPI/build
       - name: Compile CAPI
