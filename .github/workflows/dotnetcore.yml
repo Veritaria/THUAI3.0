@@ -18,10 +18,25 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 3.0.100
+
+      - name: Setup Protobuf
+        run: sudo apt-get install --no-install-recommends -y libprotobuf-dev
+      - name: Make Protobuf
+        run: |
+            wget https://github.com/protocolbuffers/protobuf/releases/download/v3.8.0-rc1/protobuf-cpp-3.8.0-rc-1.tar.gz --no-check-certificate
+            tar -zxvf protobuf-cpp-3.8.0-rc-1.tar.gz
+            rm protobuf-cpp-3.8.0-rc-1.tar.gz
+            cd protobuf-3.8.0-rc-1
+            ./configure --prefix=./protobuf
+            make
+            make install
+            rm -rf ./protobuf-3.8.0-rc-1
+
       - name: Publish server
         run: dotnet publish "logic/Logic.Server/Logic.Server.csproj" -c Release -r linux-x64 --self-contained true
       - name: Publish agent
         run: dotnet publish "communication/Agent/Communication.Agent.csproj" -c Release -r linux-x64 -f netcoreapp3.0 --self-contained true
+      
       - name: Build docker image of server
         run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_server:latest -f logic/ServerDockerfile .
       - name: Build docker image of agent
@@ -30,11 +45,10 @@ jobs:
         run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest -f CAPI/Dockerfile_compile .
       - name: Build CAPI_run docker image
         run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest -f CAPI/Dockerfile_run .
-      - name: Push server image to DockerHub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/thuai_server:latest
-      - name: Push agent image to DockerHub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/thuai_agent:latest
-      - name: Push CAPI_compile image to DockerHub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
-      - name: Push CAPI_runtime image to DockerHub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest
+      
+      - name: Push images to DockerHub
+        run: |
+            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_server:latest
+            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_agent:latest
+            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
+            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest
