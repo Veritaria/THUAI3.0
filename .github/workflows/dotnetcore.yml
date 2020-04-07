@@ -25,11 +25,13 @@ jobs:
         run: wget https://github.com/protocolbuffers/protobuf/releases/download/v3.8.0-rc1/protobuf-cpp-3.8.0-rc-1.tar.gz --no-check-certificate
       - name: Unzip protobuf
         run: tar -zxvf protobuf-cpp-3.8.0-rc-1.tar.gz
+      - name: Delete protobuf zip
+        run: rm protobuf-cpp-3.8.0-rc-1.tar.gz
       - name: Make Protobuf
         run: |
-            rm protobuf-cpp-3.8.0-rc-1.tar.gz
             cd protobuf-3.8.0-rc-1
-            ./configure --prefix=./protobuf
+            pwd
+            ./configure --prefix=/protobuf
             make
             make install
             rm -rf ./protobuf-3.8.0-rc-1
