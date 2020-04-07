@@ -48,7 +48,7 @@ jobs:
         run: |
             cd CAPI/build
             cmake ..
-            make >error.txt 2>&1
+            # make >error.txt 2>&1
             cd ..
 
       - name: Print tree
