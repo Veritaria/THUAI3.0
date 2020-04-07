@@ -43,8 +43,11 @@ jobs:
       - name: Compile CAPI
         run: chmod +x ./CAPI/compile_actions.sh
 
-      - name: Find libprotos.so
-        run: ls ./protobuf/lib
+      - name: Print tree
+        run: |
+            sudo apt-get install tree
+            tree ./protobuf
+            tree ./CAPI
 
       - name: Publish server
         run: dotnet publish "logic/Logic.Server/Logic.Server.csproj" -c Release -r linux-x64 --self-contained true
