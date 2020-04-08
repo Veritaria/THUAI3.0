@@ -46,10 +46,11 @@ jobs:
         run: mkdir CAPI/build
       - name: Compile CAPI
         run: |
-            cd CAPI/build
-            cmake ..
+            bash ./CAPI/compile_actions.sh
+            # cd CAPI/build
+            # cmake ..
             # make >error.txt 2>&1
-            cd ..
+            # cd ..
 
       - name: Print tree
         run: |
