@@ -42,8 +42,8 @@ jobs:
         
       # - name: Compile CAPI
       #  run: cat CAPI/src/player.cpp | grep "#define DEVELOPER_ONLY"
-      - name: Compile CAPI
-        run: mkdir CAPI/build
+      # - name: Compile CAPI
+      #  run: mkdir CAPI/build
       - name: Compile CAPI
         run: |
             bash ./CAPI/compile_actions.sh
