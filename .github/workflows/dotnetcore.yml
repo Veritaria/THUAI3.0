@@ -54,8 +54,9 @@ jobs:
 
       - name: Print tree
         run: |
-            sudo apt-get install tree
-            tree ./CAPI
+            # sudo apt-get install tree
+            # tree ./CAPI
+            ls ./CAPI/build/proto
             ls ./CAPI/build/proto/lib
 
       - name: Publish server
