@@ -9,6 +9,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+#     needs: build
     steps:
       - uses: actions/checkout@v1
       - name: Log in to DockerHub
@@ -17,12 +18,6 @@ jobs:
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 3.0.100
-
-      - name: Setup cmake
-        run: |
-            wget https://github.com/Kitware/CMake/releases/download/v3.15.7/cmake-3.15.7-Linux-x86_64.tar.gz --no-check-certificate
-            tar -zxvf cmake-3.15.7-Linux-x86_64.tar.gz 
-            rm cmake-3.15.7-Linux-x86_64.tar.gz
 
       - name: Setup Protobuf
         run: sudo apt-get install --no-install-recommends -y libprotobuf-dev
@@ -36,7 +31,6 @@ jobs:
             make
             make install
             rm -rf ./protobuf-3.8.0-rc-1
-
       - name: Download HP-Socket
         run: |
             wget https://github.com/ldcsaa/HP-Socket/archive/v5.7.1.tar.gz --no-check-certificate
@@ -56,14 +50,12 @@ jobs:
             # cmake ..
             # make >error.txt 2>&1
             # cd ..
-
       - name: Print tree
         run: |
             # sudo apt-get install tree
             # tree ./CAPI
             ls ./CAPI/build/proto
             ls ./CAPI/build/proto/lib
-
       - name: Publish server
         run: dotnet publish "logic/Logic.Server/Logic.Server.csproj" -c Release -r linux-x64 --self-contained true
       - name: Publish agent
@@ -71,16 +63,16 @@ jobs:
       
       - name: Build docker image of server
         run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_server:latest -f logic/ServerDockerfile .
-      - name: Build docker image of agent and client
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest -f logic/AgentDockerfile .
+      - name: Build docker image of agent
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_agent:latest -f logic/AgentDockerfile .
       - name: Build CAPI_compile docker image
         run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest -f CAPI/Dockerfile_compile .
-      # - name: Build CAPI_run docker image
-      #   run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest -f CAPI/Dockerfile_run .
+      - name: Build CAPI_run docker image
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest -f CAPI/Dockerfile_run .
       
       - name: Push images to DockerHub
         run: |
             docker push ${{ secrets.DOCKER_USERNAME }}/thuai_server:latest
-            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest
-            #  push ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest
+            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_agent:latest
             docker push ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
+            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest
