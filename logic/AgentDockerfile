@@ -1,5 +1,18 @@
 # Agent and client
-
+FROM ubuntu
+WORKDIR /usr/local
+RUN apt-get update \
+	&& apt-get install --no-install-recommends -y wget gcc g++ make
+# RUN wget https://github.com/protocolbuffers/protobuf/releases/download/v3.8.0-rc1/protobuf-cpp-3.8.0-rc-1.tar.gz --no-check-certificate \
+#	&& tar -zxvf protobuf-cpp-3.8.0-rc-1.tar.gz && rm protobuf-cpp-3.8.0-rc-1.tar.gz \
+#	&& cd protobuf-3.8.0-rc-1 && ./configure --prefix=/usr/local/protobuf && make && make install \
+#	&& LD_LIBRARY_PATH=/usr/local/protobuf/lib \
+#	&& rm -rf /usr/local/protobuf-3.8.0-rc-1
+ADD ./protobuf/bin/protoc /usr/bin/protoc
+ADD ./protobuf /usr/local/protobuf
+ENV LD_LIBRARY_PATH=/usr/local/protobuf/lib
+ENV Protobuf_INCLUDE_DIR=/usr/local/protobuf/include
+RUN cp -r /usr/local/protobuf/include/* /usr/include/ && cp -r /usr/local/protobuf/lib/*.* /usr/lib/x86_64-linux-gnu/
 FROM mcr.microsoft.com/dotnet/core/runtime:3.0
 COPY communication/Agent/bin/Release/netcoreapp3.0/linux-x64/ app/
 ENTRYPOINT ["dotnet", "app/Communication.Agent.dll"]

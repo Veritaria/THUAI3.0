@@ -66,16 +66,16 @@ jobs:
       
       - name: Build docker image of server
         run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_server:latest -f logic/ServerDockerfile .
-      - name: Build docker image of agent
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_agent:latest -f logic/AgentDockerfile .
+      - name: Build docker image of agent and client
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest -f logic/AgentDockerfile .
       - name: Build CAPI_compile docker image
         run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest -f CAPI/Dockerfile_compile .
-      - name: Build CAPI_run docker image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest -f CAPI/Dockerfile_run .
+      # - name: Build CAPI_run docker image
+      #   run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest -f CAPI/Dockerfile_run .
       
       - name: Push images to DockerHub
         run: |
             docker push ${{ secrets.DOCKER_USERNAME }}/thuai_server:latest
-            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_agent:latest
+            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest
             docker push ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
-            docker push ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest
+            #  push ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest
