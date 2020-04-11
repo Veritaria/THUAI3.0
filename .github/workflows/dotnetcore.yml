@@ -78,4 +78,4 @@ jobs:
             docker push ${{ secrets.DOCKER_USERNAME }}/thuai_server:latest
             docker push ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest
             docker push ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
-            #  push ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest
+      #  push ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest
