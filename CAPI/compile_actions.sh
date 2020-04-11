@@ -8,4 +8,5 @@ fi
 mkdir build
 cd build
 cmake ..
+make
 # make >error.txt 2>&1
