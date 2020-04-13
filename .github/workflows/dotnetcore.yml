@@ -75,10 +75,12 @@ jobs:
         run: docker run -itd --name thuai_compiler_test ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
 
       - name: Find .so file
-        run: docker run -itd --name compiler_test ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
+        run: |
+            sleep 600
+            docker cp compiler_test:/usr/local/CAPI/build/proto/lib/libprotos.so /home/runner/work/THUAI3.0/THUAI3.0/
 
       - name: Build docker image of agent and client
-        run: docker cp compiler_test:/usr/local/CAPI/build/proto/lib/libprotos.so /home/runner/work/THUAI3.0/THUAI3.0/
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest -f CAPI/Dockerfile_run .
 
       - name: Push images to DockerHub
         run: |
