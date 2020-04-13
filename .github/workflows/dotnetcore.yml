@@ -72,7 +72,9 @@ jobs:
       #   run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest -f CAPI/Dockerfile_run .
       
       - name: Run compile docker image
-        run: docker run -itd --name thuai_compiler_test ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
+        run: |
+            docker run -itd --name thuai_compiler_test ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
+            docker exec -i thuai_compiler_test bash ./compile.sh
 
       - name: Find .so file
         run: |
