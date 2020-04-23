@@ -82,7 +82,7 @@ jobs:
             docker cp compiler_test:/usr/local/CAPI/build/proto/lib/libprotos.so /home/runner/work/THUAI3.0/THUAI3.0/
 
       - name: Build docker image of agent and client
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest -f CAPI/Dockerfile_run .
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest -f CAPI/AgentDockerfile .
 
       - name: Push images to DockerHub
         run: |
@@ -90,3 +90,8 @@ jobs:
             docker push ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest
             #  push ${{ secrets.DOCKER_USERNAME }}/thuai_client:latest
             docker push ${{ secrets.DOCKER_USERNAME }}/thuai_compiler:latest
+
+      - name: Test agent docker image
+        run: |
+            docker run -itd --name agent_test ${{ secrets.DOCKER_USERNAME }}/thuai_agentclient:latest
+            docker cp compier_test
