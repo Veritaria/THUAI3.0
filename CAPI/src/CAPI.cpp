@@ -20,6 +20,7 @@
 #pragma comment(lib, "HPSocket.lib")
 
 #include <sys/timeb.h>
+#include<memory>
 
 using namespace std;
 mutex io_mutex;
@@ -58,7 +59,7 @@ EnHandleResult CListenerImpl::OnReceive(ITcpClient* pSender, CONNID dwConnID, co
 	const byte* p = pData;
 	INT32 type = *(INT32*)p;
 	p += 4;
-	Message* message = new Message();
+	shared_ptr<Message> message = make_shared<Message>();
 	switch (type)
 	{
 	case (INT32)PacketType::IdAllocate:
@@ -104,7 +105,12 @@ EnHandleResult CListenerImpl::OnClose(ITcpClient* pSender, CONNID dwConnID, EnSo
 void CAPI::OnReceive(IMessage* message)
 {
 	hash_t typehash = hash2(get_type(typeid(*message).name()));
-	if (typehash == hash2(get_type(typeid(Message).name())))
+
+	if (typehash == hash2(get_type(typeid(Protobuf::MessageToClient).name())))
+	{
+		UpdateInfo((Protobuf::MessageToClient*)message);
+	}
+	else if (typehash == hash2(get_type(typeid(Message).name())))
 	{
 		if (((Message*)message)->content != NULL)
 			OnReceive(((Message*)message)->content);
@@ -124,14 +130,16 @@ void CAPI::OnReceive(IMessage* message)
 		buffer += ((Protobuf::ChatMessage*)message)->message();
 		io_mutex.unlock();
 	}
-	else if (typehash == hash2(get_type(typeid(Protobuf::MessageToClient).name())))
-	{
-		UpdateInfo((Protobuf::MessageToClient*)message);
-	}
 	else
 	{
 		throw new domain_error("unknown protobuf packet type \n");
 	}
+}
+
+void CAPI::OnReceive(shared_ptr<Message> message)
+{
+	this->OnReceive(message.get());
+	return;
 }
 
 void CAPI::Quit()
@@ -148,7 +156,7 @@ void CAPI::SendChatMessage(string message)
 	mes1->set_message(message);
 	Message* mes2 = new Message(PlayerId, mes1);
 	Message* mes3 = new Message(-1, mes2);
-	Message* mes = new Message(-1, mes3);
+	shared_ptr<Message> mes=make_shared<Message>(-1, mes3);
 	Send(mes);
 }
 
@@ -156,12 +164,13 @@ void CAPI::SendCommandMessage(MessageToServer* message)
 {
 	Message* mes2 = new Message(PlayerId, message);
 	Message* mes3 = new Message(-1, mes2);
-	Message* mes = new Message(-1, mes3);
+	shared_ptr<Message> mes = make_shared<Message>(-1, mes3);
 	Send(mes);
 }
 
 void CAPI::CreateObj(int64_t id, Protobuf::MessageToClient* message)
 {
+	std::cout << "Create Obj " << id << std::endl;
 	MapInfo::obj_list.insert(std::pair<int64_t, shared_ptr< Obj>>(id, make_shared<Obj>(XYPosition(message->gameobjectlist().at(id).positionx(), message->gameobjectlist().at(id).positiony()), message->gameobjectlist().at(id).objtype())));
 	MapInfo::obj_list[id]->blockType = message->gameobjectlist().at(id).blocktype();
 	MapInfo::obj_list[id]->dish = message->gameobjectlist().at(id).dishtype();
@@ -189,6 +198,7 @@ void CAPI::MoveObj(int64_t id, Protobuf::MessageToClient* message, std::unordere
 	MapInfo::obj_list[id]->position.x = message->gameobjectlist().at(id).positionx();
 	MapInfo::obj_list[id]->position.y = message->gameobjectlist().at(id).positiony();
 	MapInfo::obj_list[id]->facingDiretion = message->gameobjectlist().at(id).direction();
+	MapInfo::obj_list[id]->team = message->gameobjectlist().at(id).team();
 
 	MapInfo::mutex_map[(int)MapInfo::obj_list[id]->position.x][(int)MapInfo::obj_list[id]->position.y]->lock();
 	MapInfo::obj_map[(int)MapInfo::obj_list[id]->position.x][(int)MapInfo::obj_list[id]->position.y].insert(std::pair<int64_t, shared_ptr< Obj>>(id, MapInfo::obj_list[id]));
@@ -209,15 +219,28 @@ void CAPI::UpdateInfo(Protobuf::MessageToClient* message)
 		GameRunning = true;
 		std::cout << "Game start" << std::endl;
 	}
-	Protobuf::GameObject self = message->gameobjectlist().at(PlayerInfo._id);
-	PlayerInfo._position.x = PlayerInfo.position.x = self.positionx();
-	PlayerInfo._position.y = PlayerInfo.position.y = self.positiony();
-	PlayerInfo.facingDirection = self.direction();
-	PlayerInfo.moveSpeed = self.movespeed();
-	PlayerInfo.sightRange = PlayerInfo._sightRange = self.sightrange();
-	PlayerInfo.dish = self.dishtype();
-	PlayerInfo.tool = self.tooltype();
-	PlayerInfo.recieveText = self.speaktext();
+	google::protobuf::Map<int64_t, Protobuf::GameObject>::const_iterator self_iter = message->gameobjectlist().find(PlayerInfo._id);
+	if (self_iter != message->gameobjectlist().end())
+	{
+
+		PlayerInfo._position.x = PlayerInfo.position.x = self_iter->second.positionx();
+		PlayerInfo._position.y = PlayerInfo.position.y = self_iter->second.positiony();
+		PlayerInfo.facingDirection = self_iter->second.direction();
+		PlayerInfo.moveSpeed = self_iter->second.movespeed();
+		PlayerInfo.sightRange = PlayerInfo._sightRange = self_iter->second.sightrange();
+		PlayerInfo.dish = self_iter->second.dishtype();
+		PlayerInfo.tool = self_iter->second.tooltype();
+		PlayerInfo.recieveText = self_iter->second.recievetext();
+	}
+	//Protobuf::GameObject self = message->gameobjectlist().at(PlayerInfo._id);
+	//PlayerInfo._position.x = PlayerInfo.position.x = self.positionx();
+	//PlayerInfo._position.y = PlayerInfo.position.y = self.positiony();
+	//PlayerInfo.facingDirection = self.direction();
+	//PlayerInfo.moveSpeed = self.movespeed();
+	//PlayerInfo.sightRange = PlayerInfo._sightRange = self.sightrange();
+	//PlayerInfo.dish = self.dishtype();
+	//PlayerInfo.tool = self.tooltype();
+	//PlayerInfo.recieveText = self.recievetext();
 	if (message->scores().contains(PlayerInfo._team))
 		PlayerInfo.score = message->scores().at(PlayerInfo._team);
 
@@ -231,6 +254,7 @@ void CAPI::UpdateInfo(Protobuf::MessageToClient* message)
 	{
 		std::cout << "Delete Obj" << std::endl;
 		MapInfo::obj_list.erase(i->first);
+		MapInfo::obj_map[i->second->position.x][i->second->position.y].erase(i->first);
 	}
 	task_list.resize(0);
 	for (google::protobuf::RepeatedField<google::protobuf::int32>::const_iterator i = message->tasks().begin(); i != message->tasks().end(); i++)
@@ -265,6 +289,7 @@ void CAPI::Initialize()
 bool CAPI::ConnectServer(const char* address, USHORT port)
 {
 	ip = address;
+	this->port = port;
 	while (!pclient->IsConnected())
 	{
 		Debug(1, "ClientSide: Connecting to server ");
@@ -291,6 +316,16 @@ void CAPI::Send(Message* mes) //发送Message
 	DebugFunc(2, "ClientSide: Data sent ", get_type(typeid(*(mes->content)).name()).c_str());
 }
 
+void CAPI::Send(shared_ptr<Message> mes) //发送Message
+{
+	byte bytes[maxl];
+	byte* p = bytes;
+	p = WriteInt32((int)PacketType::ProtoPacket, p);
+	p = mes->SerializeToArray(p, maxl - 4);
+	pclient->Send(bytes, p - bytes);
+	DebugFunc(2, "ClientSide: Data sent ", get_type(typeid(*(mes->content)).name()).c_str());
+}
+
 void CAPI::Refresh()
 {
 	if (AgentId == -1 || PlayerId == -1)
@@ -299,7 +334,7 @@ void CAPI::Refresh()
 	ping->set_ticks(currentTimeMillisec());
 	Message* mes1 = new Message(PlayerId, ping);
 	Message* mes2 = new Message(AgentId, mes1);
-	Message* mes = new Message(-1, mes2);
+	shared_ptr<Message> mes = make_shared<Message>(-1, mes2);
 	Send(mes);
 }
 

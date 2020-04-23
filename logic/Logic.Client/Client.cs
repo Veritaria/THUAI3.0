@@ -25,6 +25,10 @@ namespace Client
         protected MessageToServer messageToServer = new MessageToServer();
         protected Talent playerTalent;
         protected bool isStartedGame = false;
+        protected MessageToClient lastRecieveMessage = new MessageToClient();
+        protected PlayBack.Reader Reader;
+        protected System.Threading.Timer playBackTimer;
+        protected bool isPlayBack;
 
         public void ChangeControlLabelText(string id, string str)
         {
@@ -69,6 +73,7 @@ namespace Client
                             ChangeControlLabelText("Tool", gameObjectMessage.ToolType.ToString());
                         else
                             ChangeControlLabelText("Tool", "");
+                        ChangeControlLabelText("RecieveText", gameObjectMessage.RecieveText);
                     }
                     break;
                 case ObjType.Block:
@@ -194,6 +199,11 @@ namespace Client
                 //Console.WriteLine("Change Form");
             }
 
+            if (lastRecieveMessage.GameObjectList.ContainsKey(id_t) && gameObjectMessage.GetHashCode() == lastRecieveMessage.GameObjectList[id_t].GetHashCode())
+            {
+                //Console.WriteLine("Same " + id_t);
+                return;
+            }
             if (Program.form.playerLabels[id_t].InvokeRequired)
             {
                 Program.form.playerLabels[id_t].Invoke(new Action<Int64, Communication.Proto.GameObject>(RefreshFormLabelMethod), id_t, gameObjectMessage);
@@ -203,15 +213,25 @@ namespace Client
                 RefreshFormLabelMethod(id_t, gameObjectMessage);
             }
         }
-        public Player(double x, double y, ushort agentPort, Talent talent) :
+        public Player(double x, double y, ushort agentPort, Talent talent, bool isPlayBack) :
             base(x, y)
         {
-            ClientCommunication.Initialize();
-            ClientCommunication.ReceiveMessage += OnReceive;
-            ClientCommunication.ConnectServer(new IPEndPoint(IPAddress.Loopback, agentPort));
+            this.isPlayBack = isPlayBack;
+            if (!isPlayBack)
+            {
+                ClientCommunication.Initialize();
+                ClientCommunication.ReceiveMessage += OnReceive;
+                ClientCommunication.ConnectServer(new IPEndPoint(IPAddress.Loopback, agentPort));
+            }
             playerTalent = talent;
 
-            new Thread(Operation).Start();
+            if (isPlayBack)
+            {
+                Reader = new PlayBack.Reader("server.playback");
+                PlayBack();
+            }
+            else
+                new Thread(Operation).Start();
         }
         private void Operation()
         {
@@ -229,44 +249,86 @@ namespace Client
                         continue;
                     switch (key)
                     {
-                        case 'd': Move(THUnity2D.Direction.Right); break;
-                        case 'e': Move(THUnity2D.Direction.RightUp); break;
-                        case 'w': Move(THUnity2D.Direction.Up); break;
-                        case 'q': Move(THUnity2D.Direction.LeftUp); break;
-                        case 'a': Move(THUnity2D.Direction.Left); break;
-                        case 'z': Move(THUnity2D.Direction.LeftDown); break;
-                        case 'x': Move(THUnity2D.Direction.Down); break;
-                        case 'c': Move(THUnity2D.Direction.RightDown); break;
-                        case 'f': Pick(); break;
+                        case 'd':
+                            Move(THUnity2D.Direction.Right, 200);
+                            break;
+                        case 'e':
+                            Move(THUnity2D.Direction.RightUp, 200);
+                            break;
+                        case 'w':
+                            Move(THUnity2D.Direction.Up, 200);
+                            break;
+                        case 'q':
+                            Move(THUnity2D.Direction.LeftUp, 200);
+                            break;
+                        case 'a':
+                            Move(THUnity2D.Direction.Left, 200);
+                            break;
+                        case 'z':
+                            Move(THUnity2D.Direction.LeftDown, 200);
+                            break;
+                        case 'x':
+                            Move(THUnity2D.Direction.Down, 200);
+                            break;
+                        case 'c':
+                            Move(THUnity2D.Direction.RightDown, 200);
+                            break;
+                        case 'f':
+                            Console.WriteLine("\nPlease Input 3 parameters : isSelfPosition, pickType, dishOrToolType");
+                            Pick(Convert.ToBoolean(int.Parse(Console.ReadLine())), (ObjType)int.Parse(Console.ReadLine()), int.Parse(Console.ReadLine()));
+                            break;
                         case 'u':
-                            Console.WriteLine("Please Input 2 parameters : ");
+                            Console.WriteLine("\nPlease Input 2 parameters : ");
                             Use(1, double.Parse(Console.ReadLine()), double.Parse(Console.ReadLine()));
                             break;
                         case 'i': Use(0, 0); break;
                         case 'r':
-                            Console.WriteLine("Please Input 2 parameters : ");
+                            Console.WriteLine("\nPlease Input 2 parameters : ");
                             Put(double.Parse(Console.ReadLine()), double.Parse(Console.ReadLine()), true);
                             break;
                         case 't':
-                            Console.WriteLine("Please Input 2 parameters : ");
+                            Console.WriteLine("\nPlease Input 2 parameters : ");
                             Put(double.Parse(Console.ReadLine()), double.Parse(Console.ReadLine()), false);
                             break;
                         case ':':
-                            Console.WriteLine("Please Input your text to speak : ");
+                            Console.WriteLine("\nPlease Input your text to speak : ");
                             SpeakToFriend(Console.ReadLine());
                             break;
                     }
                     lastSendTime = DateTime.Now;
                 }
-                catch(ArgumentNullException)
+                catch (ArgumentNullException)
                 {
-                    ClientDebug("Argument Null !!!");
+                    ClientDebug("\nArgument Null !!!");
                 }
-                catch(FormatException)
+                catch (FormatException)
                 {
-                    ClientDebug("Format Incorrect !!!");
+                    ClientDebug("\nFormat Incorrect !!!");
                 }
             }
+        }
+
+        private object PlayBackLock = new object();
+        public void PlayBack()
+        {
+            Console.WriteLine("Press any key to start playback");
+            Console.ReadKey();
+            IMessage<MessageToClient> message;
+            playBackTimer = new System.Threading.Timer(
+                (o) =>
+                {
+                    lock (PlayBackLock)
+                    {
+                        message = new MessageToClient();
+                        if (Reader.Read(ref message))
+                            OnReceive(message);
+                        else
+                        {
+                            Console.WriteLine("PlayBack End !");
+                            playBackTimer.Dispose();
+                        }
+                    }
+                }, null, 0, 50);
         }
         public override void Move(THUnity2D.Direction direction_t, int duration = 1000)
         {
@@ -297,9 +359,12 @@ namespace Client
             messageToServer.Parameter2 = parameter_2;
             ClientCommunication.SendMessage(messageToServer);
         }
-        public override void Pick()
+        public override void Pick(bool isSelfPosition, ObjType pickType, int dishOrToolType)
         {
             messageToServer.CommandType = CommandType.Pick;
+            messageToServer.IsPickSelfPosition = isSelfPosition;
+            messageToServer.PickType = pickType;
+            messageToServer.PickDishOrToolType = dishOrToolType;
             ClientCommunication.SendMessage(messageToServer);
         }
         public void SpeakToFriend(string speakText)
@@ -317,6 +382,13 @@ namespace Client
                 throw new Exception("Recieve Error !");
             MessageToClient msg = message as MessageToClient;
 
+            //Console.WriteLine("\nRecieve :");
+            //foreach (var item in msg.GameObjectList)
+            //{
+            //    Console.Write("\t" + item.Key);
+            //}
+            //Console.WriteLine("");
+
             //自己的id小于0时为未初始化状态，此时初始化自己的id，然后发送message选择天赋
             if (this.id < 0)
             {
@@ -325,12 +397,15 @@ namespace Client
                 {
                     this.id = gameObject.Key;
                     this.team = gameObject.Value.Team;
-                    Console.WriteLine("\nThis Player :\n" + "\t" + id.ToString() + "\n\tposition: " + Position.ToString());
-                    //ClientCommunication.SendMessage(new MessageToServer
-                    //{
-                    //    Talent = playerTalent,
-                    //    IsSetTalent = true
-                    //});
+                    if (!isPlayBack)
+                    {
+                        Console.WriteLine("\nThis Player :\n" + "\t" + id.ToString() + "\n\tposition: " + Position.ToString());
+                        ClientCommunication.SendMessage(new MessageToServer
+                        {
+                            Talent = playerTalent,
+                            IsSetTalent = true
+                        });
+                    }
                     break;
                 }
                 messageToServer.ID = this.id;
@@ -340,11 +415,17 @@ namespace Client
             this._facingDirection = (THUnity2D.Direction)msg.GameObjectList[this.id].Direction;
 
             ChangeAllLabels(msg);
+            lastRecieveMessage = msg;
         }
 
         HashSet<Int64> IDsToDelete = new HashSet<long>();
         public void ChangeAllLabels(MessageToClient msg)
         {
+            if (lastRecieveMessage.GetHashCode() == msg.GetHashCode())
+            {
+                //Console.WriteLine("Same messageToClient");
+                return;
+            }
             IDsToDelete = new HashSet<long>(Program.form.playerLabels.Keys);
             foreach (var gameObject in msg.GameObjectList)
             {
@@ -365,6 +446,12 @@ namespace Client
                     Program.form.Controls.Remove(Program.form.playerLabels[number]);
                 }
                 Program.form.playerLabels.Remove(number);
+            }
+
+            if (lastRecieveMessage.Tasks.GetHashCode() == msg.Tasks.GetHashCode())
+            {
+                //Console.WriteLine("Same Tasks");
+                return;
             }
 
             if (Program.form.ControlLabels["Task"].InvokeRequired)
