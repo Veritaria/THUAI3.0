@@ -7,17 +7,23 @@ using Timer;
 using THUnity2D;
 using static Logic.Constant.Constant;
 using static Logic.Constant.MapInfo;
+using Newtonsoft.Json.Linq;
+using System.Net.Http;
+using System.Net;
+using System.Text;
+
 namespace Logic.Server
 {
     class Server
     {
         protected ICommunication ServerCommunication;
         protected uint MaxRunTimeInSecond;
-        System.Threading.Timer SendMessageTimer = null;
-        System.Threading.Timer ToolRefreshTimer = null;
-        System.Threading.Timer ServerStopTimer = null;
-        System.Threading.Timer WatchInputTimer = null;
-        Thread ServerRunThread = null;
+        System.Threading.Timer? SendMessageTimer;
+        System.Threading.Timer? ToolRefreshTimer;
+        //System.Threading.Timer? ServerStopTimer;
+        System.Threading.Timer? WatchInputTimer;
+        Thread ServerRunThread;
+        PlayBack.Writer writer = new PlayBack.Writer("server.playback");
 
         public Server(ushort serverPort, ushort playerCount, ushort agentCount, uint MaxGameTimeSeconds, string token)
         {
@@ -35,13 +41,15 @@ namespace Logic.Server
 
             //初始化playerList
             //向所有Client发送他们自己的ID
+            XYPosition[] bornPoints = { new XYPosition(2.5, 1.5), new XYPosition(48.5, 2.5), new XYPosition(48.5, 48.5), new XYPosition(2.5, 48.5) };
             for (int a = 0; a < Constants.AgentCount; a++)
             {
                 Program.MessageToClient.Scores.Add(a, 0);
+                Program.ScoreLocks.TryAdd(a, new object());
                 for (int c = 0; c < Constants.PlayerCount; c++)
                 {
                     Tuple<int, int> playerIDTuple = new Tuple<int, int>(a, c);
-                    Program.PlayerList.TryAdd(playerIDTuple, new Player(2.5, 1.5));//new Random().Next(2, WORLD_MAP_WIDTH - 2), new Random().Next(2, WORLD_MAP_HEIGHT - 2)));
+                    Program.PlayerList.TryAdd(playerIDTuple, new Player(bornPoints[a].x, bornPoints[a].y));//new Random().Next(2, WORLD_MAP_WIDTH - 2), new Random().Next(2, WORLD_MAP_HEIGHT - 2)));
                     Program.PlayerList[playerIDTuple].CommunicationID = playerIDTuple;
                     MessageToClient msg = new MessageToClient();
                     msg.GameObjectList.Add(
@@ -76,9 +84,9 @@ namespace Logic.Server
         {
             Time.InitializeTime();
             Server.ServerDebug("Server begin to run");
-            TaskSystem.RefreshTimer.Change(1000, (int)Configs["TaskRefreshTime"]);
+            TaskSystem.RefreshTimer.Change(1000, (int)Configs("TaskRefreshTime"));
             ToolRefreshTimer = new System.Threading.Timer(ToolRefresh, null,
-                0, (int)Configs["ToolRefreshTime"]);
+                0, (int)Configs("ToolRefreshTime"));
 
             SendMessageTimer = new System.Threading.Timer(
                 (o) =>
@@ -90,17 +98,21 @@ namespace Logic.Server
 
             Thread.Sleep((int)MaxRunTimeInSecond * 1000);
             PrintScore();
+            SaveScore();
+            SendHttpRequest($"https://api.eesast.com/v1/teams/scores", ServerCommunication.Token, "PUT", new JObject
+            {
+                ["scores"] = new JArray(Program.MessageToClient.Scores.Values)
+            });
+            ServerCommunication.GameOver();
             Server.ServerDebug("Server stop running");
         }
 
-        void ToolRefresh(object o)
+        void ToolRefresh(object? o)
         {
-            THUnity2D.XYPosition tempPosition = null;
-            for (int i = 0; i < 10; i++)//加入次数限制，防止后期地图过满疯狂Random
+            THUnity2D.XYPosition tempPosition = new THUnity2D.XYPosition(Program.Random.Next(1, map.GetLength(0) - 1), Program.Random.Next(1, map.GetLength(1) - 1)); ;
+            for (int i = 0; i < 10 && !WorldMap.Grid[(int)tempPosition.x, (int)tempPosition.y].IsEmpty(); i++)//加入次数限制，防止后期地图过满疯狂Random
             {
                 tempPosition = new THUnity2D.XYPosition(Program.Random.Next(1, map.GetLength(0) - 1), Program.Random.Next(1, map.GetLength(1) - 1));
-                if (WorldMap.Grid[(int)tempPosition.x, (int)tempPosition.y].IsEmpty())
-                    break;
             }
             new Tool(tempPosition.x + 0.5, tempPosition.y + 0.5, (ToolType)Program.Random.Next(1, (int)ToolType.ToolSize - 1)).Parent = WorldMap;
         }
@@ -115,7 +127,17 @@ namespace Logic.Server
             Console.WriteLine("===============================");
         }
 
-        protected void WatchInput(object o)
+        protected void SaveScore()
+        {
+            JToken scores = new JObject();
+            foreach (var item in Program.MessageToClient.Scores)
+            {
+                scores[item.Key.ToString()] = item.Value;
+            }
+            System.IO.File.WriteAllText("scores.json", Newtonsoft.Json.JsonConvert.SerializeObject(scores));
+        }
+
+        protected void WatchInput(object? o)
         {
             try
             {
@@ -207,15 +229,33 @@ namespace Logic.Server
         {
             lock (Program.MessageToClientLock)
             {
-                ServerCommunication.SendMessage(new ServerMessage
-                {
-                    Agent = -2,
-                    Client = -2,
-                    Message = Program.MessageToClient
-                });
+                Program.ServerMessage.Message = Program.MessageToClient;
+                ServerCommunication.SendMessage(Program.ServerMessage);
+                writer.Write(Program.MessageToClient);
             }
         }
-
         public static Action<string> ServerDebug = (str) => { Console.WriteLine(str); };
+
+        protected void SendHttpRequest(string url, string token, string method, JObject data)
+        {
+            if (string.IsNullOrEmpty(token)) return;
+            try
+            {
+                var request = WebRequest.CreateHttp(url);
+                request.Method = method;
+                request.Headers.Add("Authorization", $"bearer {token}");
+                if (data != null)
+                {
+                    request.ContentType = "application/json";
+                    var raw = Encoding.UTF8.GetBytes(data.ToString());
+                    request.GetRequestStream().Write(raw, 0, raw.Length);
+                    request.GetResponse();
+                }
+            }
+            catch (Exception e)
+            {
+                Server.ServerDebug(e.ToString());
+            }
+        }
     }
 }

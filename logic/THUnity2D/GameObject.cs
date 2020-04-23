@@ -26,6 +26,8 @@ namespace THUnity2D
         {
             this._parent.OnChildrenDelete(this);
             this._parent = null;
+            if (Velocity.length > 0)
+                Velocity = new Vector(Velocity.angle, 0);
             OnParentDelete?.Invoke();
         }
         protected delegate void ParentAddHandler();
@@ -39,7 +41,7 @@ namespace THUnity2D
         private GameObject? _parent;
         public GameObject? Parent
         {
-            get { lock (privateLock) { return _parent; } }
+            get => _parent;
             set
             {
                 lock (privateLock)
@@ -67,7 +69,7 @@ namespace THUnity2D
 
         //Children
         protected HashSet<GameObject> _childrenGameObjectList = new HashSet<GameObject>();
-        public HashSet<GameObject> ChildrenGameObjectList { get { lock (privateLock) { return this._childrenGameObjectList; } } }
+        public HashSet<GameObject> ChildrenGameObjectList { get => _childrenGameObjectList; }
         protected virtual void OnChildrenAdded(GameObject childrenObject)
         {
             lock (privateLock)
@@ -97,7 +99,7 @@ namespace THUnity2D
         protected internal XYPosition _position = new XYPosition();
         public XYPosition Position
         {
-            get { lock (privateLock) { return this._position; } }
+            get => _position;
             set
             {
                 lock (privateLock)
@@ -119,8 +121,8 @@ namespace THUnity2D
             }
         }
 
-        public delegate void PositionChangedHandler(GameObject sender, PositionChangedEventArgs e);
-        public event PositionChangedHandler? OnPositionChanged; // 声明事件
+        internal delegate void PositionChangedHandler(GameObject sender, PositionChangedEventArgs e);
+        internal event PositionChangedHandler? OnPositionChanged; // 声明事件
         public delegate void PositionChangeCompleteHandler(GameObject sender);
         public event PositionChangeCompleteHandler? PositionChangeComplete;
         protected virtual void PositionChanged(PositionChangedEventArgs e)
@@ -138,7 +140,7 @@ namespace THUnity2D
         protected double _facingDirection = 0;
         public double FacingDirection
         {
-            get { lock (privateLock) { return this._facingDirection; } }
+            get => this._facingDirection;
             set { lock (privateLock) { this._facingDirection = value; OnDirectionChanged(new DirectionChangedEventArgs(this._facingDirection)); } }
         }
         public class DirectionChangedEventArgs : EventArgs
@@ -168,7 +170,7 @@ namespace THUnity2D
         protected double _frameRate = 30;
         public double FrameRate
         {
-            get { lock (privateLock) { return this._frameRate; } }
+            get => _frameRate;
             set
             {
                 lock (privateLock)
@@ -208,7 +210,7 @@ namespace THUnity2D
         protected object _velocityLock = new object();
         public Vector Velocity
         {
-            get { lock (_velocityLock) { return this._velocity; } }
+            get => _velocity;
             set
             {
                 lock (_velocityLock)
@@ -242,7 +244,7 @@ namespace THUnity2D
         protected int _width = 1;
         public int Width
         {
-            get { lock (privateLock) { return this._width; } }
+            get => _width;
             set
             {
                 lock (privateLock)
@@ -277,7 +279,7 @@ namespace THUnity2D
         protected int _height = 1;
         public int Height
         {
-            get { lock (privateLock) { return this._height; } }
+            get => _height;
             set
             {
                 lock (privateLock)
@@ -295,7 +297,7 @@ namespace THUnity2D
         protected internal Layer _layer;
         public Layer Layer
         {
-            get { lock (privateLock) { return _layer; } }
+            get => _layer;
             set
             {
                 lock (privateLock)
@@ -332,7 +334,7 @@ namespace THUnity2D
         private bool _movable;
         public bool Movable
         {
-            get { lock (privateLock) { return this._movable; } }
+            get => this._movable;
             set { lock (privateLock) { this._movable = value; } }
         }
         //Movable end
@@ -396,7 +398,7 @@ namespace THUnity2D
         protected bool _bouncable = false;
         public bool Bouncable
         {
-            get { return _bouncable; }
+            get => _bouncable;
             set
             {
                 _bouncable = value;
@@ -435,20 +437,19 @@ namespace THUnity2D
         //Collision
 
         //Trigger
-        public delegate void TriggerHandler(HashSet<GameObject>? triggerGameObjects);
+        public delegate void TriggerHandler(HashSet<GameObject> triggerGameObjects);
         public event TriggerHandler? OnTrigger;
-        protected internal void Trigger(HashSet<GameObject>? triggerGameObjects)
+        protected internal void Trigger(HashSet<GameObject> triggerGameObjects)
         {
             if (triggerGameObjects == null || triggerGameObjects.Count == 0)
                 return;
             lock (privateLock)
             {
                 DebugWithoutEndline(this, "Trigger with : ");
-                if (triggerGameObjects != null)
-                    foreach (var gameObject in triggerGameObjects)
-                    {
-                        DebugWithoutIDEndline(this, gameObject.ID + "  ");
-                    }
+                foreach (var gameObject in triggerGameObjects)
+                {
+                    DebugWithoutIDEndline(this, gameObject.ID + "  ");
+                }
                 DebugWithoutID(this, "");
                 OnTrigger?.Invoke(triggerGameObjects);
             }
